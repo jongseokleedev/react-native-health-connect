@@ -3,6 +3,7 @@ import * as React from 'react';
 import {
   Button,
   NativeSyntheticEvent,
+  ScrollView,
   StyleSheet,
   TextInput,
   TextInputChangeEventData,
@@ -28,8 +29,9 @@ import {
   ExerciseType,
   requestExerciseRoute,
   HealthConnectRecord,
+  ExerciseSegmentType,
 } from 'react-native-health-connect';
-import type { Location } from 'src/types/base.types';
+import type { ExerciseLap, Location } from 'src/types/base.types';
 
 const generateExerciseRoute = (startTime: Date): Location[] => {
   const route: Location[] = [];
@@ -161,12 +163,13 @@ export default function App() {
   };
 
   const readSampleData = () => {
-    readRecords('Steps', {
+    readRecords('ExerciseSession', {
       timeRangeFilter: {
         operator: 'between',
         startTime: getBeginningOfLast14Days().toISOString(),
         endTime: now().toISOString(),
       },
+      // dataOriginFilter: ['com.sec.android.app.shealth'],
     })
       .then((result) => {
         console.log('Retrieved records: ', JSON.stringify({ result }, null, 2));
@@ -175,7 +178,38 @@ export default function App() {
         console.error('Error reading records ', { err });
       });
   };
-
+  const readDistanceData = () => {
+    readRecords('Distance', {
+      timeRangeFilter: {
+        operator: 'between',
+        startTime: getBeginningOfLast14Days().toISOString(),
+        endTime: now().toISOString(),
+      },
+      // dataOriginFilter: ['com.sec.android.app.shealth'],
+    })
+      .then((result) => {
+        console.log('Retrieved records: ', JSON.stringify({ result }, null, 2));
+      })
+      .catch((err) => {
+        console.error('Error reading records ', { err });
+      });
+  };
+  const readHeartRateData = () => {
+    readRecords('HeartRate', {
+      timeRangeFilter: {
+        operator: 'between',
+        startTime: getBeginningOfLast14Days().toISOString(),
+        endTime: now().toISOString(),
+      },
+      // dataOriginFilter: ['com.sec.android.app.shealth'],
+    })
+      .then((result) => {
+        console.log('Retrieved records: ', JSON.stringify({ result }, null, 2));
+      })
+      .catch((err) => {
+        console.error('Error reading records ', { err });
+      });
+  };
   const readSampleDataSingle = () => {
     readRecord('Steps', '40a67ecf-d929-4648-996e-e8d248727d95')
       .then((result) => {
@@ -258,8 +292,28 @@ export default function App() {
         recordType: 'ExerciseSession',
       },
       {
+        accessType: 'read',
+        recordType: 'TotalCaloriesBurned',
+      },
+      {
         accessType: 'write',
-        recordType: 'ExerciseRoute',
+        recordType: 'Distance',
+      },
+      {
+        accessType: 'read',
+        recordType: 'Distance',
+      },
+      {
+        accessType: 'read',
+        recordType: 'Speed',
+      },
+      {
+        accessType: 'read',
+        recordType: 'HeartRate',
+      },
+      {
+        accessType: 'read',
+        recordType: 'ActiveCaloriesBurned',
       },
     ]).then((permissions) => {
       console.log('Granted permissions on request ', { permissions });
@@ -267,6 +321,7 @@ export default function App() {
   };
 
   const grantedPermissions = () => {
+    console.log('Checking granted permissions...');
     getGrantedPermissions().then((permissions) => {
       console.log('Granted permissions ', { permissions });
     });
@@ -283,17 +338,36 @@ export default function App() {
         endTime: new Date(startTime.getTime() + 1000 * 60 * 10).toISOString(), // 10 minutes
         metadata: {
           clientRecordId: random64BitString(),
-          recordingMethod:
-            RecordingMethod.RECORDING_METHOD_AUTOMATICALLY_RECORDED,
+          recordingMethod: RecordingMethod.RECORDING_METHOD_ACTIVELY_RECORDED,
           device: {
             manufacturer: 'Google',
             model: 'Pixel 4',
             type: DeviceType.TYPE_PHONE,
           },
         },
-        exerciseType: ExerciseType.RUNNING,
+        exerciseType: ExerciseType.SWIMMING_POOL,
         exerciseRoute: { route: generateExerciseRoute(startTime) },
-        title: 'Morning Run - v' + Math.random().toFixed(2).toString(),
+        title: 'Morning Swim - v' + Math.random().toFixed(2).toString(),
+        segments: [
+          {
+            startTime: startTime.toISOString(),
+            endTime: new Date(
+              startTime.getTime() + 1000 * 60 * 10
+            ).toISOString(),
+            // Use ExerciseSegmentType from constants
+            segmentType: ExerciseSegmentType.SWIMMING_BUTTERFLY,
+            repetitions: 1,
+          },
+        ],
+        laps: [
+          {
+            startTime: startTime.toISOString(),
+            endTime: new Date(
+              startTime.getTime() + 1000 * 60 * 10
+            ).toISOString(),
+            length: { value: 25, unit: 'meters' },
+          },
+        ],
       },
     ])
       .then((ids) => {
@@ -336,43 +410,48 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      <Button title="Initialize" onPress={initializeHealthConnect} />
-      <Button
-        title="Open Health Connect settings"
-        onPress={openHealthConnectSettings}
-      />
-      <Button
-        title="Open Health Connect data management"
-        onPress={() => openHealthConnectDataManagement()}
-      />
-      <Button title="Check availability" onPress={checkAvailability} />
-      <Button
-        title="Request sample permissions"
-        onPress={requestSamplePermissions}
-      />
-      <Button title="Get granted permissions" onPress={grantedPermissions} />
-      <Button title="Revoke all permissions" onPress={revokeAllPermissions} />
-      <Button title="Insert sample data" onPress={insertSampleData} />
-      <Button title="Read sample data" onPress={readSampleData} />
-      <Button title="Read specific data" onPress={readSampleDataSingle} />
-      <Button title="Aggregate sample data" onPress={aggregateSampleData} />
-      <Button
-        title="Aggregate sample group data by duration"
-        onPress={aggregateSampleGroupByDuration}
-      />
-      <Button
-        title="Aggregate sample group data by period"
-        onPress={aggregateSampleGroupByPeriod}
-      />
-      <Button title="Insert random exercise" onPress={insertRandomExercise} />
-      <TextInput
-        id="record-id"
-        placeholder="Record ID"
-        value={recordId}
-        onChange={updateRecordId}
-      />
-      <Button title="Read exercise" onPress={readExercise} />
-      <Button title="Request exercise route" onPress={readExerciseRoute} />
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={true}
+      >
+        <Button
+          title="Open Health Connect settings"
+          onPress={openHealthConnectSettings}
+        />
+        <Button
+          title="Open Health Connect data management"
+          onPress={() => openHealthConnectDataManagement()}
+        />
+        <Button title="Initialize" onPress={initializeHealthConnect} />
+        <Button title="Check availability" onPress={checkAvailability} />
+        <Button
+          title="Request sample permissions"
+          onPress={requestSamplePermissions}
+        />
+        <Button title="Get granted permissions" onPress={grantedPermissions} />
+        <Button title="Revoke all permissions" onPress={revokeAllPermissions} />
+        <Button title="Insert sample data" onPress={insertSampleData} />
+        <Button title="Read sample data" onPress={readSampleData} />
+        <Button title="Read specific data" onPress={readSampleDataSingle} />
+        <Button title="Aggregate sample data" onPress={aggregateSampleData} />
+        <Button
+          title="Aggregate sample group data by duration"
+          onPress={aggregateSampleGroupByDuration}
+        />
+        <Button
+          title="Aggregate sample group data by period"
+          onPress={aggregateSampleGroupByPeriod}
+        />
+        <Button title="Insert random exercise" onPress={insertRandomExercise} />
+        <TextInput
+          id="record-id"
+          placeholder="Record ID"
+          value={recordId}
+          onChange={updateRecordId}
+        />
+        <Button title="Read exercise" onPress={readExercise} />
+        <Button title="Request exercise route" onPress={readExerciseRoute} />
+      </ScrollView>
     </View>
   );
 }
@@ -382,6 +461,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    rowGap: 16,
+  },
+  scrollContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
     rowGap: 16,
   },
   box: {

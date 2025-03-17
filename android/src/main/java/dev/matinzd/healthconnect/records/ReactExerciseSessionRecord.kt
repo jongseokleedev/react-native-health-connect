@@ -18,6 +18,7 @@ import com.facebook.react.bridge.WritableNativeArray
 import com.facebook.react.bridge.WritableNativeMap
 import dev.matinzd.healthconnect.utils.*
 import java.time.Instant
+import android.util.Log
 
 class ReactExerciseSessionRecord : ReactHealthRecordImpl<ExerciseSessionRecord> {
   private val aggregateMetrics = setOf(ExerciseSessionRecord.EXERCISE_DURATION_TOTAL)
@@ -45,14 +46,14 @@ class ReactExerciseSessionRecord : ReactHealthRecordImpl<ExerciseSessionRecord> 
         ),
         notes = it.getString("notes"),
         title = it.getString("title"),
-        laps = it.getArray("samples")?.toMapList()?.map { sample ->
+        laps = it.getArray("laps")?.toMapList()?.map { sample ->
           ExerciseLap(
             startTime = Instant.parse(sample.getString("startTime")),
             endTime = Instant.parse(sample.getString("endTime")),
             length = getLengthFromJsMap(sample.getMap("length")),
           )
         } ?: emptyList(),
-        segments = it.getArray("samples")?.toMapList()?.map { sample ->
+        segments = it.getArray("segments")?.toMapList()?.map { sample ->
           ExerciseSegment(
             startTime = Instant.parse(sample.getString("startTime")),
             endTime = Instant.parse(sample.getString("endTime")),
@@ -75,6 +76,10 @@ class ReactExerciseSessionRecord : ReactHealthRecordImpl<ExerciseSessionRecord> 
   }
 
   override fun parseRecord(record: ExerciseSessionRecord): WritableNativeMap {
+    // 로그 태그 설정
+    val TAG = "ReactExerciseSessionRecord"
+    Log.d(TAG, "Parsing record: startTime=${record.startTime}, title=${record.title}")
+
     return WritableNativeMap().apply {
       putString("startTime", record.startTime.toString())
       putMap("startZoneOffset", zoneOffsetToJsMap(record.startZoneOffset))
@@ -83,27 +88,42 @@ class ReactExerciseSessionRecord : ReactHealthRecordImpl<ExerciseSessionRecord> 
       putString("notes", record.notes)
       putString("title", record.title)
       putInt("exerciseType", record.exerciseType)
-      putArray("laps", WritableNativeArray().apply {
-        record.laps.map {
-          val map = WritableNativeMap()
-          map.putString("startTime", it.startTime.toString())
-          map.putString("endTime", it.endTime.toString())
-          map.putMap("length", lengthToJsMap(it.length))
-          this.pushMap(map)
-        }
-      })
-      putArray("segments", WritableNativeArray().apply {
-        record.segments.map {
-          val map = WritableNativeMap()
-          map.putString("startTime", it.startTime.toString())
-          map.putString("endTime", it.endTime.toString())
-          map.putDouble("repetitions", it.repetitions.toDouble())
-          map.putDouble("segmentType", it.segmentType.toDouble())
-          this.pushMap(map)
-        }
-      })
 
+      // Laps 처리 및 디버그 로그 추가
+      val lapsArray = WritableNativeArray().apply {
+        record.laps.forEach { lap ->
+          Log.d(TAG, "Lap: startTime=${lap.startTime}, endTime=${lap.endTime}, length=${lap.length}")
+          val lapMap = WritableNativeMap().apply {
+            putString("startTime", lap.startTime.toString())
+            putString("endTime", lap.endTime.toString())
+            putMap("length", lengthToJsMap(lap.length))
+          }
+          this.pushMap(lapMap)
+        }
+      }
+      putArray("laps", lapsArray)
+      putInt("lapsCount", record.laps.size) // 전체 랩 개수
 
+      // Segments 처리 및 디버그 로그 추가
+      val segmentsArray = WritableNativeArray().apply {
+        record.segments.forEach { segment ->
+          Log.d(
+            TAG,
+            "Segment: startTime=${segment.startTime}, endTime=${segment.endTime}, type=${segment.segmentType}, repetitions=${segment.repetitions}"
+          )
+          val segMap = WritableNativeMap().apply {
+            putString("startTime", segment.startTime.toString())
+            putString("endTime", segment.endTime.toString())
+            putDouble("repetitions", segment.repetitions.toDouble())
+            putDouble("segmentType", segment.segmentType.toDouble())
+          }
+          this.pushMap(segMap)
+        }
+      }
+      putArray("segments", segmentsArray)
+      putInt("segmentsCount", record.segments.size) // 전체 세그먼트 개수
+
+      // Exercise Route 처리
       val exerciseRouteMap = WritableNativeMap()
       when (record.exerciseRouteResult) {
         is ExerciseRouteResult.Data -> {
@@ -113,11 +133,12 @@ class ReactExerciseSessionRecord : ReactHealthRecordImpl<ExerciseSessionRecord> 
           exerciseRouteMap.putString("type", "DATA")
           exerciseRouteMap.putArray("route", route)
         }
+
         is ExerciseRouteResult.NoData -> {
           exerciseRouteMap.putString("type", "NO_DATA")
           exerciseRouteMap.putArray("route", WritableNativeArray())
-
         }
+
         is ExerciseRouteResult.ConsentRequired -> {
           exerciseRouteMap.putString("type", "CONSENT_REQUIRED")
           exerciseRouteMap.putArray("route", WritableNativeArray())
@@ -198,15 +219,15 @@ class ReactExerciseSessionRecord : ReactHealthRecordImpl<ExerciseSessionRecord> 
   companion object {
     fun parseExerciseRoute(exerciseRoute: ExerciseRoute): ReadableNativeArray {
       return WritableNativeArray().apply {
-          exerciseRoute.route.map {
-            val map = WritableNativeMap()
-            map.putString("time", it.time.toString())
-            map.putDouble("latitude", it.latitude)
-            map.putDouble("longitude", it.longitude)
-            map.putMap("horizontalAccuracy", lengthToJsMap(it.horizontalAccuracy))
-            map.putMap("verticalAccuracy", lengthToJsMap(it.verticalAccuracy))
-            map.putMap("altitude", lengthToJsMap(it.altitude))
-            this.pushMap(map)
+        exerciseRoute.route.map {
+          val map = WritableNativeMap()
+          map.putString("time", it.time.toString())
+          map.putDouble("latitude", it.latitude)
+          map.putDouble("longitude", it.longitude)
+          map.putMap("horizontalAccuracy", lengthToJsMap(it.horizontalAccuracy))
+          map.putMap("verticalAccuracy", lengthToJsMap(it.verticalAccuracy))
+          map.putMap("altitude", lengthToJsMap(it.altitude))
+          this.pushMap(map)
         }
       }
     }
