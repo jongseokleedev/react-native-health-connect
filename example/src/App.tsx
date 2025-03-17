@@ -222,12 +222,13 @@ export default function App() {
 
   const aggregateSampleData = () => {
     aggregateRecord({
-      recordType: 'Steps',
+      recordType: 'ExerciseSession',
       timeRangeFilter: {
         operator: 'between',
         startTime: getBeginningOfLast7Days().toISOString(),
         endTime: now().toISOString(),
       },
+      dataOriginFilter: ['com.sec.android.app.shealth'],
     }).then((result) => {
       console.log('Aggregated record: ', { result });
     });
@@ -235,7 +236,7 @@ export default function App() {
 
   const aggregateSampleGroupByDuration = () => {
     aggregateGroupByDuration({
-      recordType: 'Steps',
+      recordType: 'ExerciseSession',
       timeRangeFilter: {
         operator: 'between',
         startTime: getBeginningOfLast7Days().toISOString(),
@@ -243,7 +244,7 @@ export default function App() {
       },
       timeRangeSlicer: {
         duration: 'DAYS',
-        length: 2,
+        length: 4,
       },
     }).then((result) => {
       console.log(
@@ -335,7 +336,7 @@ export default function App() {
       {
         recordType: 'ExerciseSession',
         startTime: startTime.toISOString(),
-        endTime: new Date(startTime.getTime() + 1000 * 60 * 10).toISOString(), // 10 minutes
+        endTime: new Date(startTime.getTime() + 9000 * 60 * 10).toISOString(), // 10 minutes
         metadata: {
           clientRecordId: random64BitString(),
           recordingMethod: RecordingMethod.RECORDING_METHOD_ACTIVELY_RECORDED,
@@ -354,8 +355,17 @@ export default function App() {
             endTime: new Date(
               startTime.getTime() + 1000 * 60 * 10
             ).toISOString(),
-            // Use ExerciseSegmentType from constants
-            segmentType: ExerciseSegmentType.SWIMMING_BUTTERFLY,
+            segmentType: ExerciseSegmentType.SWIMMING_BUTTERFLY, // 접영
+            repetitions: 1,
+          },
+          {
+            startTime: new Date(
+              startTime.getTime() + 3000 * 60 * 10
+            ).toISOString(),
+            endTime: new Date(
+              startTime.getTime() + 7000 * 60 * 10
+            ).toISOString(),
+            segmentType: ExerciseSegmentType.SWIMMING_FREESTYLE, // 자유형
             repetitions: 1,
           },
         ],

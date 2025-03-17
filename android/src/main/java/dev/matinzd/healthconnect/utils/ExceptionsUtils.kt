@@ -6,7 +6,7 @@ import okio.IOException
 
 class ExerciseRouteAccessDenied : Exception("Request to access exercise route denied")
 class ClientNotInitialized : Exception("Health Connect client is not initialized")
-class InvalidRecordType : Exception("Record type is not valid")
+class InvalidRecordType(message: String = "Invalid record type") : Exception(message)
 class InvalidTemperature : Exception("Temperature is not valid")
 class InvalidEnergy : Exception("Energy is not valid")
 class InvalidVelocity : Exception("Velocity is not valid")

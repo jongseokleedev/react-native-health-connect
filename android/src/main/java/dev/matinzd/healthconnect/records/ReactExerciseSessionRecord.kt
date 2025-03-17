@@ -78,7 +78,7 @@ class ReactExerciseSessionRecord : ReactHealthRecordImpl<ExerciseSessionRecord> 
   override fun parseRecord(record: ExerciseSessionRecord): WritableNativeMap {
     // 로그 태그 설정
     val TAG = "ReactExerciseSessionRecord"
-    Log.d(TAG, "Parsing record: startTime=${record.startTime}, title=${record.title}")
+    Log.d(TAG, "Parsing record: startTime=${record.startTime}, title=${record}")
 
     return WritableNativeMap().apply {
       putString("startTime", record.startTime.toString())
@@ -92,7 +92,10 @@ class ReactExerciseSessionRecord : ReactHealthRecordImpl<ExerciseSessionRecord> 
       // Laps 처리 및 디버그 로그 추가
       val lapsArray = WritableNativeArray().apply {
         record.laps.forEach { lap ->
-          Log.d(TAG, "Lap: startTime=${lap.startTime}, endTime=${lap.endTime}, length=${lap.length}")
+          Log.d(
+            TAG,
+            "Lap: startTime=${lap.startTime}, endTime=${lap.endTime}, length=${lap.length}"
+          )
           val lapMap = WritableNativeMap().apply {
             putString("startTime", lap.startTime.toString())
             putString("endTime", lap.endTime.toString())

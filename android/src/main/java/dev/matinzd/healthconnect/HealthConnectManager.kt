@@ -1,5 +1,7 @@
 package dev.matinzd.healthconnect
 
+import android.util.Log
+
 import android.content.Intent
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.changes.DeletionChange
@@ -23,6 +25,7 @@ import dev.matinzd.healthconnect.utils.rejectWithException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import dev.matinzd.healthconnect.utils.InvalidRecordType
 
 class HealthConnectManager(private val applicationContext: ReactApplicationContext) {
   private lateinit var healthConnectClient: HealthConnectClient
@@ -69,7 +72,9 @@ class HealthConnectManager(private val applicationContext: ReactApplicationConte
   ) {
     throwUnlessClientIsAvailable(promise) {
       coroutineScope.launch {
-        val granted = HealthConnectPermissionDelegate.launchPermissionsDialog(PermissionUtils.parsePermissions(reactPermissions))
+        val granted = HealthConnectPermissionDelegate.launchPermissionsDialog(
+          PermissionUtils.parsePermissions(reactPermissions)
+        )
         promise.resolve(PermissionUtils.mapPermissionResult(granted))
       }
     }
@@ -80,11 +85,11 @@ class HealthConnectManager(private val applicationContext: ReactApplicationConte
   ) {
     throwUnlessClientIsAvailable(promise) {
       coroutineScope.launch {
-        val exerciseRoute = HealthConnectPermissionDelegate.launchExerciseRouteAccessRequestDialog(recordId)
+        val exerciseRoute =
+          HealthConnectPermissionDelegate.launchExerciseRouteAccessRequestDialog(recordId)
         if (exerciseRoute != null) {
           promise.resolve(ReactExerciseSessionRecord.parseExerciseRoute(exerciseRoute))
-        }
-        else{
+        } else {
           promise.rejectWithException(ExerciseRouteAccessDenied())
         }
       }
@@ -123,13 +128,24 @@ class HealthConnectManager(private val applicationContext: ReactApplicationConte
   }
 
   fun readRecords(recordType: String, options: ReadableMap, promise: Promise) {
+    Log.d(
+      "HealthConnect",
+      "readRecords() called with recordType: $recordType options: $options and promise: $promise"
+    )
+
     throwUnlessClientIsAvailable(promise) {
       coroutineScope.launch {
         try {
+          Log.d("HealthConnect", "Parsing read request...")
           val request = ReactHealthRecord.parseReadRequest(recordType, options)
+
+          Log.d("HealthConnect", "Sending request to HealthConnectClient...")
           val response = healthConnectClient.readRecords(request)
+
+          Log.d("HealthConnect", "Received response: $response")
           promise.resolve(ReactHealthRecord.parseRecords(recordType, response))
         } catch (e: Exception) {
+          Log.e("HealthConnect", "Error reading records", e)
           promise.rejectWithException(e)
         }
       }
@@ -140,8 +156,10 @@ class HealthConnectManager(private val applicationContext: ReactApplicationConte
     throwUnlessClientIsAvailable(promise) {
       coroutineScope.launch {
         try {
-          val record = ReactHealthRecord.getRecordByType(recordType)
-          val response = healthConnectClient.readRecord(record, recordId)
+          val recordClass = ReactHealthRecord.getRecordByType(recordType)
+            ?: throw InvalidRecordType("Invalid record type: $recordType")
+
+          val response = healthConnectClient.readRecord(recordClass.kotlin, recordId)
           promise.resolve(ReactHealthRecord.parseRecord(recordType, response))
         } catch (e: Exception) {
           promise.rejectWithException(e)
@@ -155,12 +173,10 @@ class HealthConnectManager(private val applicationContext: ReactApplicationConte
       coroutineScope.launch {
         try {
           val recordType = record.getString("recordType") ?: ""
-          val response = healthConnectClient.aggregate(
-            ReactHealthRecord.getAggregateRequest(
-              recordType, record
-            )
-          )
-          promise.resolve(ReactHealthRecord.parseAggregationResult(recordType, response))
+//          val request = ReactHealthRecord.getAggregateRequest(recordType, record)
+//
+//          val response = healthConnectClient.aggregate(request)
+//          promise.resolve(ReactHealthRecord.parseAggregationResult(recordType, response))
         } catch (e: Exception) {
           promise.rejectWithException(e)
         }
@@ -173,12 +189,17 @@ class HealthConnectManager(private val applicationContext: ReactApplicationConte
       coroutineScope.launch {
         try {
           val recordType = record.getString("recordType") ?: ""
-          val response = healthConnectClient.aggregateGroupByDuration(
-            ReactHealthRecord.getAggregateGroupByDurationRequest(
-              recordType, record
-            )
-          )
-          promise.resolve(ReactHealthRecord.parseAggregationResultGroupedByDuration(recordType, response))
+//          val response = healthConnectClient.aggregateGroupByDuration(
+//            ReactHealthRecord.getAggregateGroupByDurationRequest(
+//              recordType, record
+//            )
+//          )
+//          promise.resolve(
+//            ReactHealthRecord.parseAggregationResultGroupedByDuration(
+//              recordType,
+//              response
+//            )
+//          )
         } catch (e: Exception) {
           promise.rejectWithException(e)
         }
@@ -191,12 +212,17 @@ class HealthConnectManager(private val applicationContext: ReactApplicationConte
       coroutineScope.launch {
         try {
           val recordType = record.getString("recordType") ?: ""
-          val response = healthConnectClient.aggregateGroupByPeriod(
-            ReactHealthRecord.getAggregateGroupByPeriodRequest(
-              recordType, record
-            )
-          )
-          promise.resolve(ReactHealthRecord.parseAggregationResultGroupedByPeriod(recordType, response))
+//          val response = healthConnectClient.aggregateGroupByPeriod(
+//            ReactHealthRecord.getAggregateGroupByPeriodRequest(
+//              recordType, record
+//            )
+//          )
+//          promise.resolve(
+//            ReactHealthRecord.parseAggregationResultGroupedByPeriod(
+//              recordType,
+//              response
+//            )
+//          )
         } catch (e: Exception) {
           promise.rejectWithException(e)
         }
@@ -209,7 +235,9 @@ class HealthConnectManager(private val applicationContext: ReactApplicationConte
       coroutineScope.launch {
         try {
           val changesToken =
-            options.getString("changesToken") ?: healthConnectClient.getChangesToken(convertChangesTokenRequestOptionsFromJS(options))
+            options.getString("changesToken") ?: healthConnectClient.getChangesToken(
+              convertChangesTokenRequestOptionsFromJS(options)
+            )
           val changesResponse = healthConnectClient.getChanges(changesToken)
 
           promise.resolve(WritableNativeMap().apply {
@@ -260,7 +288,8 @@ class HealthConnectManager(private val applicationContext: ReactApplicationConte
             healthConnectClient.deleteRecords(
               recordType = record,
               recordIdsList = recordIdsList.toArrayList().mapNotNull { it.toString() }.toList(),
-              clientRecordIdsList = clientRecordIdsList.toArrayList().mapNotNull { it.toString() }.toList()
+              clientRecordIdsList = clientRecordIdsList.toArrayList().mapNotNull { it.toString() }
+                .toList()
             )
             promise.resolve(true)
           } catch (e: Exception) {
